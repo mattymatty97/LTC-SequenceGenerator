@@ -1,0 +1,30 @@
+﻿<Project Sdk="LethalCompany.Plugin.Sdk/1.0.0">
+  
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <RootNamespace>SequenceGenerator</RootNamespace>
+
+    <Title>SequenceGenerator</Title>
+    <Description>A tool for generating sequence diagrams of in-game code execution order</Description>
+    <PluginId>com.willis.lc.sequencegenerator</PluginId>
+    <Version>0.0.1</Version>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Reference Include="LethalSettings">
+      <HintPath>..\..\..\AppData\Roaming\Thunderstore Mod Manager\DataFolder\LethalCompany\profiles\Mod Development\BepInEx\plugins\LethalSettings.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ThunderDependency Include="willis81808-LethalSettings" Version="1.3.0" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy &quot;$(TargetDir)\SequenceGenerator.dll&quot; &quot;C:\Users\Reid Willis\AppData\Roaming\Thunderstore Mod Manager\DataFolder\LethalCompany\profiles\Mod Development\BepInEx\plugins&quot; /Y" />
+  </Target>
+  
+</Project>
