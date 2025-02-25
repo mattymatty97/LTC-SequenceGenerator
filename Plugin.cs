@@ -1,10 +1,12 @@
 ﻿using BepInEx.Logging;
 using LethalSettings.UI;
 using LethalSettings.UI.Components;
-using Mono.Security.Authenticode;
 using SequenceGenerator.Patches;
 using System;
+using System.Collections;
 using System.Reflection;
+using BepInEx;
+using HarmonyLib;
 using UnityEngine;
 
 namespace SequenceGenerator;
@@ -13,11 +15,11 @@ namespace SequenceGenerator;
 [BepInPlugin(GeneratedPluginInfo.Identifier, GeneratedPluginInfo.Name, GeneratedPluginInfo.Version)]
 public class Plugin : BaseUnityPlugin
 {
-    internal static ManualLogSource Log { get; private set; }
+    internal static ManualLogSource Log;
 
     private void Awake()
     {
-        Log = base.Logger;
+        Log = Logger;
         
         Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), GeneratedPluginInfo.Identifier);
 
@@ -33,6 +35,7 @@ public class Plugin : BaseUnityPlugin
                 if (ExecutionRecorder.Recording)
                 {
                     // on stop recording
+                    ExecutionRecorder.Recording = false;
                     ExecutionRecorder.Recording = false;
                     var outputMmdPath = ExecutionRecorder.ExportData();
                     GUIUtility.systemCopyBuffer = outputMmdPath;

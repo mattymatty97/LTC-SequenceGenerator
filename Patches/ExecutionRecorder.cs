@@ -1,15 +1,19 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
+using BepInEx;
+using HarmonyLib;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace SequenceGenerator.Patches;
 
 [HarmonyPatch]
-internal class ExecutionRecorder
+internal static class ExecutionRecorder
 {
     [Serializable]
     public class ExecutionData
@@ -18,16 +22,11 @@ internal class ExecutionRecorder
     }
 
     [Serializable]
-    public class ExecutionEvent
+    public record ExecutionEvent(string type, string method, bool prefix)
     {
-        public string type;
-        public string method;
-
-        public ExecutionEvent(string type, string method)
-        {
-            this.type = type;
-            this.method = method;
-        }
+        public string type = type;
+        public string method = method;
+        public bool prefix = prefix;
     }
 
     internal static ExecutionData data = new ExecutionData();
@@ -69,14 +68,28 @@ internal class ExecutionRecorder
         return methodsToPatch;
     }
 
-    static void Prefix(object[] __args, MethodBase __originalMethod)
+    static void Prefix(object[] __args, MethodBase __originalMethod, ref bool __state)
     {
-        var type = __originalMethod.DeclaringType.Name;
+        var type = __originalMethod.DeclaringType!.Name;
         var name = __originalMethod.Name;
 
-        if (Ignore(type, name)) return;
+        if (Ignore(type, name))
+        {
+            __state = true;
+            return;
+        }
 
-        data.executionEvents.Add(new ExecutionEvent(__originalMethod.DeclaringType.Name, __originalMethod.Name));
+        data.executionEvents.Add(new ExecutionEvent(type, __originalMethod.MethodSignature(), true));
+    }
+
+    static void Postfix(object[] __args, MethodBase __originalMethod, ref bool __state)
+    {
+        var type = __originalMethod.DeclaringType!.Name;
+
+        if (__state)
+            return;
+
+        data.executionEvents.Add(new ExecutionEvent(type, __originalMethod.MethodSignature(), false));
     }
 
     static bool Ignore(string type, string name)
@@ -104,14 +117,18 @@ internal class ExecutionRecorder
 
     public static string ExportData()
     {
+        var type = GameNetworkManager.Instance.isHostingGame ? "Server" : "Client";
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         // Export JSON
         string json = JsonConvert.SerializeObject(data, Formatting.Indented);
-        string jsonPath = Path.Combine(Paths.PluginPath, "raw.json");
+        string jsonPath = Path.Combine(Paths.CachePath, GeneratedPluginInfo.Name, $"{type}_{timestamp}_raw.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(jsonPath)!);
         File.WriteAllText(jsonPath, json);
 
         // Export Mermaid Sequence Diagram
         string mermaidDiagram = GenerateMermaidSequenceDiagram(data);
-        string mmdPath = Path.Combine(Paths.PluginPath, "sequenceDiagram.mmd");
+        string mmdPath = Path.Combine(Paths.CachePath, GeneratedPluginInfo.Name, $"{type}_{timestamp}_sequenceDiagram.mmd");
+        Directory.CreateDirectory(Path.GetDirectoryName(mmdPath)!);
         File.WriteAllText(mmdPath, mermaidDiagram);
 
         return mmdPath;
@@ -129,9 +146,10 @@ internal class ExecutionRecorder
             if (previousType != null && previousType != eventItem.type)
             {
                 diagram.AppendLine($"    {previousType} -->> {eventItem.type}: ");
-                diagram.AppendLine($"    note over {eventItem.type}: {eventItem.type}<br/>{eventItem.method}");
+                if (eventItem.prefix)
+                    diagram.AppendLine($"    note over {eventItem.type}: {eventItem.type}<br/>{eventItem.method}");
             }
-            else
+            else if (eventItem.prefix)
             {
                 diagram.AppendLine($"    note over {eventItem.type}: {eventItem.method}");
             }
@@ -140,5 +158,16 @@ internal class ExecutionRecorder
         }
 
         return diagram.ToString();
+    }
+
+    public static string MethodSignature(this MethodBase mi)
+    {
+        var param = mi.GetParameters()
+            .Select(p => p.ParameterType.Name)
+            .ToArray();
+
+        var signature = $"{mi.Name}({string.Join(",", param)})";
+
+        return signature;
     }
 }
