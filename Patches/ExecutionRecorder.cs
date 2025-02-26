@@ -5,22 +5,18 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using BepInEx;
 using HarmonyLib;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace SequenceGenerator.Patches;
 
 [HarmonyPatch]
 internal static class ExecutionRecorder
 {
-    [Serializable]
-    public class ExecutionData
-    {
-        public List<ExecutionEvent> executionEvents = new List<ExecutionEvent>();
-    }
-
     [Serializable]
     public record ExecutionEvent(string type, string method, bool prefix)
     {
@@ -29,9 +25,7 @@ internal static class ExecutionRecorder
         public bool prefix = prefix;
     }
 
-    internal static ExecutionData data = new ExecutionData();
-
-    private static Dictionary<string, List<string>> loggedAlready = [];
+    private static readonly List<ExecutionEvent> Events = [];
 
     private static bool _recording = false;
     public static bool Recording
@@ -41,8 +35,7 @@ internal static class ExecutionRecorder
         {
             if (value)
             {
-                data.executionEvents.Clear();
-                loggedAlready.Clear();
+                Events.Clear();
             }
             _recording = value;
         }
@@ -53,7 +46,8 @@ internal static class ExecutionRecorder
         var typesToPatch = typeof(StartOfRound).Assembly
             .GetTypes()
             .Where(t => !t.IsGenericType && !t.IsValueType && !t.ContainsGenericParameters && !t.IsAbstract)
-            .Where(t => t.IsSubclassOf(typeof(MonoBehaviour)) || t.IsSubclassOf(typeof(NetworkBehaviour)));
+            .Where(t => t.IsSubclassOf(typeof(MonoBehaviour)) || t.IsSubclassOf(typeof(NetworkBehaviour)))
+            ;
 
         var methodsToPatch = typesToPatch
             .SelectMany(t => t.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
@@ -68,95 +62,145 @@ internal static class ExecutionRecorder
         return methodsToPatch;
     }
 
-    static void Prefix(object[] __args, MethodBase __originalMethod, ref bool __state)
+    static void Prefix(object[] __args, MethodBase __originalMethod)
     {
-        var type = __originalMethod.DeclaringType!.Name;
-        var name = __originalMethod.Name;
-
-        if (Ignore(type, name))
-        {
-            __state = true;
-            return;
-        }
-
-        data.executionEvents.Add(new ExecutionEvent(type, __originalMethod.MethodSignature(), true));
-    }
-
-    static void Postfix(object[] __args, MethodBase __originalMethod, ref bool __state)
-    {
-        var type = __originalMethod.DeclaringType!.Name;
-
-        if (__state)
+        if (!Recording)
             return;
 
-        data.executionEvents.Add(new ExecutionEvent(type, __originalMethod.MethodSignature(), false));
+        if (Thread.CurrentThread != Plugin.mainThread)
+            return;
+
+        var type = __originalMethod.DeclaringType!;
+        var nestedTypes = "";
+        using (ListPool<string>.Get(out var list))
+        {
+            while (type.DeclaringType != null)
+            {
+                list.Insert(0, EscapeForMermaid(type.Name));
+                type = type.DeclaringType;
+            }
+
+            if (list.Count > 0)
+                nestedTypes = string.Join("<br/>", list) + "<br/>";
+        }
+
+        var typeName = type.Name;
+
+        if (typeName == nameof(GameNetworkManager) && __originalMethod.Name == nameof(GameNetworkManager.LogCallback) )
+            return;
+
+        Events.Add(new ExecutionEvent(typeName.EscapeForMermaid(), (nestedTypes + __originalMethod.MethodSignature()).EscapeForMermaid(), true));
     }
 
-    static bool Ignore(string type, string name)
+    static void Postfix(object[] __args, MethodBase __originalMethod)
     {
-        if (!Recording) return true;
+        if (!Recording)
+            return;
 
-        if (loggedAlready.TryGetValue(type, out var methods))
+        if (Thread.CurrentThread != Plugin.mainThread)
+            return;
+
+        var type = __originalMethod.DeclaringType!;
+        var nestedTypes = "";
+        using (ListPool<string>.Get(out var list))
         {
-            var contains = methods.Contains(name);
-            if (contains)
+            while (type.DeclaringType != null)
             {
-                return true;
+                list.Insert(0, EscapeForMermaid(type.Name));
+                type = type.DeclaringType;
             }
-            else
-            {
-                methods.Add(name);
-            }
+
+            if (list.Count > 0)
+                nestedTypes = string.Join("<br/>", list) + "<br/>";
         }
-        else
-        {
-            loggedAlready.Add(type, [name]);
-        }
-        return false;
+
+        var typeName = type.Name;
+
+        if (typeName == nameof(GameNetworkManager) && __originalMethod.Name == nameof(GameNetworkManager.LogCallback) )
+            return;
+
+        Events.Add(new ExecutionEvent(typeName.EscapeForMermaid(), (nestedTypes + __originalMethod.MethodSignature()).EscapeForMermaid(), false));
     }
 
     public static string ExportData()
     {
+        var dataClone = Events.ToList();
         var type = GameNetworkManager.Instance.isHostingGame ? "Server" : "Client";
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         // Export JSON
-        string json = JsonConvert.SerializeObject(data, Formatting.Indented);
-        string jsonPath = Path.Combine(Paths.CachePath, GeneratedPluginInfo.Name, $"{type}_{timestamp}_raw.json");
+        var json = JsonConvert.SerializeObject(dataClone, Formatting.Indented);
+        var jsonPath = Path.Combine(Paths.CachePath, GeneratedPluginInfo.Name, $"{type}_{timestamp}_raw.json");
         Directory.CreateDirectory(Path.GetDirectoryName(jsonPath)!);
         File.WriteAllText(jsonPath, json);
 
         // Export Mermaid Sequence Diagram
-        string mermaidDiagram = GenerateMermaidSequenceDiagram(data);
-        string mmdPath = Path.Combine(Paths.CachePath, GeneratedPluginInfo.Name, $"{type}_{timestamp}_sequenceDiagram.mmd");
+        var mermaidDiagram = GenerateMermaidSequenceDiagram(dataClone);
+        var mmdPath = Path.Combine(Paths.CachePath, GeneratedPluginInfo.Name, $"{type}_{timestamp}_sequenceDiagram.mmd");
         Directory.CreateDirectory(Path.GetDirectoryName(mmdPath)!);
         File.WriteAllText(mmdPath, mermaidDiagram);
 
         return mmdPath;
     }
 
-    private static string GenerateMermaidSequenceDiagram(ExecutionData data)
+    // ReSharper disable once FieldCanBeMadeReadOnly.Local
+    private static bool _keepRepetitions = false;
+
+    private static string GenerateMermaidSequenceDiagram(List<ExecutionEvent> events)
     {
         var diagram = new StringBuilder();
         diagram.AppendLine("sequenceDiagram");
 
-        string previousType = null;
+        var callStack = new Stack<ExecutionEvent>();
+        var callChain = new StringBuilder();
 
-        foreach (var eventItem in data.executionEvents)
+        HashSet<string> knownChains = [""];
+
+        foreach (var eventItem in events)
         {
-            if (previousType != null && previousType != eventItem.type)
-            {
-                diagram.AppendLine($"    {previousType} -->> {eventItem.type}: ");
-                if (eventItem.prefix)
-                    diagram.AppendLine($"    note over {eventItem.type}: {eventItem.type}<br/>{eventItem.method}");
-            }
-            else if (eventItem.prefix)
-            {
-                diagram.AppendLine($"    note over {eventItem.type}: {eventItem.method}");
-            }
+            if (callStack.Count <=0 && !eventItem.prefix)
+                continue;
 
-            previousType = eventItem.type;
+            callStack.TryPeek(out var prec);
+            var curr = eventItem;
+
+            if (curr.prefix)
+            {
+                if (prec is null)
+                    callChain.AppendLine("%% new callStack");
+                if (prec is not null && prec.type != curr.type)
+                    callChain.AppendLine($"    {prec.type} -->> {curr.type}: {curr.method}");
+                callChain.AppendLine($"    activate {curr.type}");
+                callChain.AppendLine($"    Note right of {curr.type}: {curr.method}");
+                callStack.Push(curr);
+            }
+            else
+            {
+                if (curr.type != prec.type)
+                    throw new InvalidOperationException($"{curr.type} popped but {prec.type} was expected!");
+
+                callStack.TryPop(out _);
+                callStack.TryPeek(out prec);
+
+                if (prec is not null && prec.type != curr.type)
+                {
+                    callChain.AppendLine($"    {curr.type} -->> {prec.type}: ");
+                }
+                callChain.AppendLine($"    deactivate {curr.type}");
+
+                if (prec is null)
+                {
+                    var chain = callChain.ToString();
+                    callChain.Clear();
+                    if (knownChains.Add(chain) || _keepRepetitions)
+                        diagram.Append(chain);
+                }
+            }
         }
 
+        var lastChain = callChain.ToString();
+        callChain.Clear();
+        if (knownChains.Add(lastChain) || _keepRepetitions)
+            diagram.Append(lastChain);
         return diagram.ToString();
     }
 
@@ -169,5 +213,10 @@ internal static class ExecutionRecorder
         var signature = $"{mi.Name}({string.Join(",", param)})";
 
         return signature;
+    }
+
+    public static string EscapeForMermaid(this string input)
+    {
+        return input.Replace("<", "\u02c2").Replace(">", "\u02c3");
     }
 }

@@ -5,6 +5,7 @@ using SequenceGenerator.Patches;
 using System;
 using System.Collections;
 using System.Reflection;
+using System.Threading;
 using BepInEx;
 using HarmonyLib;
 using UnityEngine;
@@ -16,6 +17,8 @@ namespace SequenceGenerator;
 public class Plugin : BaseUnityPlugin
 {
     internal static ManualLogSource Log;
+
+    internal static Thread mainThread = Thread.CurrentThread;
 
     private void Awake()
     {
