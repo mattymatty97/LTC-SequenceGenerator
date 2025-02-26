@@ -152,6 +152,7 @@ internal static class ExecutionRecorder
 
         var callStack = new Stack<ExecutionEvent>();
         var callChain = new StringBuilder();
+        var typeStatus = new Dictionary<string, int>();
 
         HashSet<string> knownChains = [""];
 
@@ -167,8 +168,16 @@ internal static class ExecutionRecorder
             {
                 if (prec is null)
                     callChain.AppendLine("%% new callStack");
+
                 if (prec is not null && prec.type != curr.type)
+                {
                     callChain.AppendLine($"    {prec.type} -->> {curr.type}: {curr.method}");
+                }
+
+                if (!typeStatus.TryGetValue(curr.type, out var count) || count == 0)
+                    callChain.AppendLine($"    Note over {curr.type}: {curr.type}");
+
+                typeStatus[curr.type] = count + 1;
                 callChain.AppendLine($"    activate {curr.type}");
                 callChain.AppendLine($"    Note right of {curr.type}: {curr.method}");
                 callStack.Push(curr);
@@ -177,6 +186,9 @@ internal static class ExecutionRecorder
             {
                 if (curr.type != prec.type)
                     throw new InvalidOperationException($"{curr.type} popped but {prec.type} was expected!");
+
+                if (typeStatus.TryGetValue(curr.type, out var count) &&  count > 0)
+                    typeStatus[curr.type] = count - 1;
 
                 callStack.TryPop(out _);
                 callStack.TryPeek(out prec);
