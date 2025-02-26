@@ -46,7 +46,7 @@ internal static class ExecutionRecorder
         var typesToPatch = typeof(StartOfRound).Assembly
             .GetTypes()
             .Where(t => !t.IsGenericType && !t.IsValueType && !t.ContainsGenericParameters && !t.IsAbstract)
-            .Where(t => t.IsSubclassOf(typeof(MonoBehaviour)) || t.IsSubclassOf(typeof(NetworkBehaviour)))
+            //.Where(t => t.IsSubclassOf(typeof(MonoBehaviour)) || t.IsSubclassOf(typeof(NetworkBehaviour)))
             ;
 
         var methodsToPatch = typesToPatch
@@ -155,6 +155,7 @@ internal static class ExecutionRecorder
         var typeStatus = new Dictionary<string, int>();
 
         HashSet<string> knownChains = [""];
+        HashSet<string> shownTypes = [];
 
         foreach (var eventItem in events)
         {
@@ -174,7 +175,7 @@ internal static class ExecutionRecorder
                     callChain.AppendLine($"    {prec.type} -->> {curr.type}: {curr.method}");
                 }
 
-                if (!typeStatus.TryGetValue(curr.type, out var count) || count == 0)
+                if ((!typeStatus.TryGetValue(curr.type, out var count) || count == 0) && shownTypes.Add(curr.type))
                     callChain.AppendLine($"    Note over {curr.type}: {curr.type}");
 
                 typeStatus[curr.type] = count + 1;
@@ -195,16 +196,21 @@ internal static class ExecutionRecorder
 
                 if (prec is not null && prec.type != curr.type)
                 {
-                    callChain.AppendLine($"    {curr.type} -->> {prec.type}: ");
+                    callChain.AppendLine($"    {curr.type} -->> {prec.type}: {prec.method}");
                 }
                 callChain.AppendLine($"    deactivate {curr.type}");
 
                 if (prec is null)
                 {
+                    shownTypes.Clear();
                     var chain = callChain.ToString();
                     callChain.Clear();
                     if (knownChains.Add(chain) || _keepRepetitions)
+                    {
+                        diagram.AppendLine("  rect GhostWhite");
                         diagram.Append(chain);
+                        diagram.AppendLine("  end");
+                    }
                 }
             }
         }
