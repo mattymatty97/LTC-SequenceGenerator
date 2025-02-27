@@ -1,19 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  
   <PropertyGroup>
-    <!-- Assembly Metadata -->
-    <AssemblyConfiguration>Release</AssemblyConfiguration>
-    <TargetFramework>netstandard2.1</TargetFramework>
-    <LangVersion>Latest</LangVersion>
-    <Platforms>AnyCPU</Platforms>
-
-    <RootNamespace>SequenceGenerator</RootNamespace>
-
-    <Title>SequenceGenerator</Title>
-    <Description>A tool for generating sequence diagrams of in-game code execution order</Description>
-    <PluginId>com.willis.lc.sequencegenerator</PluginId>
-    <Version>0.0.1</Version>
+    <RootNamespace>$(ModNameSpace)</RootNamespace>
+    <AssemblyName>$(ModName)</AssemblyName>
+    <AssemblyTitle>$(ModName) - Plugin</AssemblyTitle>
+    <Product>$(ModName)</Product>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,15 +22,7 @@
     <PackageReference Include="willis81808-LethalSettings" Version="1.4.1" />
   </ItemGroup>
 
-  <!-- Embedded Debug -->
-  <PropertyGroup>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>embedded</DebugType>
-    <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=./</PathMap>
-  </PropertyGroup>
-  
-  <!-- Suppress some Warnings -->
-  <PropertyGroup>
-    <NoWarn>1701;1702;CS0436</NoWarn>
-  </PropertyGroup>  
+  <!--    <Target Name="NetcodePatch" AfterTargets="PostBuildEvent">
+      <Exec Command="netcode-patch -nv 1.5.2 &quot;$(TargetPath)&quot; @(ReferencePathWithRefAssemblies->'&quot;%(Identity)&quot;', ' ')"/>
+  </Target>-->
 </Project>

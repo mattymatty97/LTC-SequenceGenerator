@@ -13,7 +13,7 @@ using UnityEngine;
 namespace SequenceGenerator;
 
 [BepInDependency("com.willis.lc.lethalsettings", BepInDependency.DependencyFlags.HardDependency)]
-[BepInPlugin(GeneratedPluginInfo.Identifier, GeneratedPluginInfo.Name, GeneratedPluginInfo.Version)]
+[BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BaseUnityPlugin
 {
     internal static ManualLogSource Log;
@@ -24,7 +24,7 @@ public class Plugin : BaseUnityPlugin
     {
         Log = Logger;
         
-        Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), GeneratedPluginInfo.Identifier);
+        Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), MyPluginInfo.PLUGIN_GUID);
 
         var statusLabel = new LabelComponent
         {
@@ -65,9 +65,9 @@ public class Plugin : BaseUnityPlugin
 
         ModMenu.RegisterMod(new ModMenu.ModSettingsConfig
         {
-            Name = GeneratedPluginInfo.Name,
-            Version = GeneratedPluginInfo.Version,
-            Id = GeneratedPluginInfo.Identifier,
+            Name = MyPluginInfo.PLUGIN_NAME,
+            Version = MyPluginInfo.PLUGIN_VERSION,
+            Id = MyPluginInfo.PLUGIN_GUID,
             Description = "A tool for generating sequence diagrams of in-game code execution order",
             MenuComponents = [ recordButton, statusLabel ]
         }, true, true);

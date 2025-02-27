@@ -8,8 +8,6 @@ using System.Text;
 using System.Threading;
 using BepInEx;
 using HarmonyLib;
-using Unity.Netcode;
-using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace SequenceGenerator.Patches;
@@ -129,13 +127,13 @@ internal static class ExecutionRecorder
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         // Export JSON
         var json = JsonConvert.SerializeObject(dataClone, Formatting.Indented);
-        var jsonPath = Path.Combine(Paths.CachePath, GeneratedPluginInfo.Name, $"{type}_{timestamp}_raw.json");
+        var jsonPath = Path.Combine(Paths.CachePath, MyPluginInfo.PLUGIN_NAME, $"{type}_{timestamp}_raw.json");
         Directory.CreateDirectory(Path.GetDirectoryName(jsonPath)!);
         File.WriteAllText(jsonPath, json);
 
         // Export Mermaid Sequence Diagram
         var mermaidDiagram = GenerateMermaidSequenceDiagram(dataClone);
-        var mmdPath = Path.Combine(Paths.CachePath, GeneratedPluginInfo.Name, $"{type}_{timestamp}_sequenceDiagram.mmd");
+        var mmdPath = Path.Combine(Paths.CachePath, MyPluginInfo.PLUGIN_NAME, $"{type}_{timestamp}_sequenceDiagram.mmd");
         Directory.CreateDirectory(Path.GetDirectoryName(mmdPath)!);
         File.WriteAllText(mmdPath, mermaidDiagram);
 

@@ -1,0 +1,53 @@
+<Project>
+    
+    <PropertyGroup>
+        <!-- Common Versioning and Module Information -->
+        <Version>0.0.2</Version>
+        <ModName>SequenceGenerator</ModName>
+        <ModGUID>com.willis.lc.sequencegenerator</ModGUID>
+        <ModNameSpace>$(ModName)</ModNameSpace>
+        <AssemblyVersion>$(Version)</AssemblyVersion>
+        <FileVersion>$(Version)</FileVersion>
+        <InformationalVersion>$(Version)</InformationalVersion>
+        <Authors>com.github.willis81808,com.github.mattymatty97</Authors>
+
+        <AssemblyDescription>A tool for generating sequence diagrams of in-game code execution order</AssemblyDescription>
+
+        <!-- Assembly Metadata -->
+        <AssemblyConfiguration>Release</AssemblyConfiguration>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>Latest</LangVersion>
+        <Platforms>AnyCPU</Platforms>
+
+        <!-- License Information -->
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <!-- Embedded Debug -->
+    <PropertyGroup>
+        <DebugSymbols>true</DebugSymbols>
+        <DebugType>embedded</DebugType>
+        <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=./</PathMap>
+    </PropertyGroup>
+
+    <!-- Suppress some Warnings -->
+    <PropertyGroup>
+        <NoWarn>1701;1702;CS0436</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="BepInEx.PluginInfoProps" Version="*" />
+    </ItemGroup>
+    <PropertyGroup>
+        <BepInExPluginGuid>$(ModGUID)</BepInExPluginGuid>
+        <BepInExPluginName>$(ModName)</BepInExPluginName>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+        <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
+</Project>
