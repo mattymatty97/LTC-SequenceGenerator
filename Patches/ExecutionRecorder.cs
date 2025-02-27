@@ -167,9 +167,6 @@ internal static class ExecutionRecorder
 
             if (curr.prefix)
             {
-                if (prec is null)
-                    callChain.AppendLine("%% new callStack");
-
                 if (prec is not null && prec.type != curr.type)
                 {
                     callChain.AppendLine($"    {prec.type} -->> {curr.type}: {curr.method}");
@@ -207,6 +204,7 @@ internal static class ExecutionRecorder
                     callChain.Clear();
                     if (knownChains.Add(chain) || _keepRepetitions)
                     {
+                        diagram.AppendLine("%% new callStack");
                         diagram.AppendLine("  rect GhostWhite");
                         diagram.Append(chain);
                         diagram.AppendLine("  end");
@@ -218,7 +216,12 @@ internal static class ExecutionRecorder
         var lastChain = callChain.ToString();
         callChain.Clear();
         if (knownChains.Add(lastChain) || _keepRepetitions)
+        {
+            diagram.AppendLine("%% new callStack");
+            diagram.AppendLine("  rect GhostWhite");
             diagram.Append(lastChain);
+            diagram.AppendLine("  end");
+        }
         return diagram.ToString();
     }
 
