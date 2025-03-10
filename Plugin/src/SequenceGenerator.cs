@@ -74,8 +74,9 @@ internal class SequenceGenerator : BaseUnityPlugin
 
 		var assemblies = AppDomain.CurrentDomain.GetAssemblies()
 			.Where(a => !a.IsDynamic)
-			.Where(a => !string.IsNullOrEmpty(a.Location))
-			.Where(a => targetAssemblies.Contains(a.GetName().Name));
+			.Where(a => targetAssemblies.Contains(a.GetName().Name))
+			.GroupBy(a => a.GetName().Name)
+			.Select(ag => ag.OrderBy(a => a.Location).First());
 
 		var ignored = PluginConfig.IgnoredMethods.Value.Split(",");
 
@@ -92,7 +93,7 @@ internal class SequenceGenerator : BaseUnityPlugin
 		}
 
 		Log.LogInfo($"Patching Methods from {ExecutionRecorder.TargetAssemblies.Count} assemblies!");
-		Harmony.PatchAll(typeof(ExecutionRecorder));
+		Harmony.PatchAll(typeof(ExecutionRecorder.ActualPatch));
 	}
 
 	private static void ToggleRecording()
@@ -107,12 +108,22 @@ internal class SequenceGenerator : BaseUnityPlugin
 			case RecordingStatus.Recording:
 				ExecutionRecorder.Recording = false;
 				Status = RecordingStatus.Saving;
-				Log.LogWarning("Stopped Recording!");
+				Log.LogWarning($"Stopped Recording! Trying to save {ExecutionRecorder.EventCount} events");
 				Task.Factory.StartNew(() =>
 				{
-					ExecutionRecorder.ExportData();
-					Status = RecordingStatus.Idle;
-					Log.LogWarning("Finished Saving!");
+					try
+					{
+						ExecutionRecorder.ExportData();
+					}
+					catch (Exception ex)
+					{
+						Log.LogFatal($"Exception while saving:\n{ex}");
+					}
+					finally
+					{
+						Status = RecordingStatus.Idle;
+						Log.LogWarning("Finished Saving!");
+					}
 				});
 				//TODO: start saving thread
 				break;
