@@ -10,10 +10,8 @@
     <ItemGroup>
         <PackageReference Include="BepInEx.Core" Version="5.4.21" Private="False"/>
         <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.1" PrivateAssets="all" />
-        <PackageReference Include="UnityEngine" Version="5.6.1" Private="False" Publicize="true"/>
-        <Reference Include="Netcode"  Private="False" Publicize="true">
-            <HintPath>$(SolutionDir)\Dependencies\Unity.Netcode.Runtime.dll</HintPath>
-        </Reference>
+
+        <PackageReference Include="UnityEngine" Version="5.6.1" Private="False"/>
     </ItemGroup>
 	
 	<!--    <Target Name="NetcodePatch" AfterTargets="PostBuildEvent">

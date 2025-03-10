@@ -7,7 +7,6 @@ using System.Text;
 using System.Threading;
 using BepInEx;
 using HarmonyLib;
-using Unity.Netcode;
 // ReSharper disable PossibleMultipleEnumeration
 
 namespace SequenceGenerator.Patches;
@@ -149,12 +148,11 @@ internal static class ExecutionRecorder
     public static void ExportData()
     {
         var dataClone = Events.ToList();
-        var type = NetworkManager.Singleton.IsServer ? "Server" : (NetworkManager.Singleton.IsClient ? "Client" : "Menu");
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         // Export Mermaid Sequence Diagram
         var mermaidDiagram = GenerateMermaidSequenceDiagram(dataClone);
-        var mmdPath = Path.Combine(Paths.CachePath, MyPluginInfo.PLUGIN_NAME, $"{type}_{timestamp}.mmd");
+        var mmdPath = Path.Combine(Paths.CachePath, MyPluginInfo.PLUGIN_NAME, $"{timestamp}.mmd");
         Directory.CreateDirectory(Path.GetDirectoryName(mmdPath)!);
         File.WriteAllText(mmdPath, mermaidDiagram);
     }
